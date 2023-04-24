@@ -2,7 +2,7 @@ import json
 import logging
 import os
 import requests
-from urllib.parse import urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from datetime import datetime, timedelta
 from functools import wraps
 from inspect import currentframe, getargvalues
@@ -289,9 +289,9 @@ class TokenAuth(AuthBase):
         url_parts = urlparse(request.url)
 
         # Update the query string with the token parameter
-        query_params = dict(urlencode(url_parts.query))
+        query_params = dict(parse_qsl(url_parts.query))
         query_params['token'] = self.token
-        updated_query = urlencode(query_params)
+        updated_query = urlencode(list(query_params.items()))
 
         # Reconstruct the URL with the updated query string
         updated_url = urlunparse(
