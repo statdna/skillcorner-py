@@ -6,7 +6,7 @@ setup(
     description='SkillCorner API client',
     long_description='SkillCorner API client used to get endpoint data',
     author='SkillCorner',
-    author_email='devs@statdna.com',
+    author_email='support@skillcorner.com',
     packages=['skillcorner'],
     python_requires='>=3.6',
     install_requires=[
