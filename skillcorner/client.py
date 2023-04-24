@@ -2,10 +2,11 @@ import json
 import logging
 import os
 import requests
+from urllib.parse import urlencode, urlparse, urlunparse
 from datetime import datetime, timedelta
 from functools import wraps
 from inspect import currentframe, getargvalues
-from requests.auth import HTTPBasicAuth
+from requests.auth import HTTPBasicAuth, AuthBase
 from makefun import create_function
 
 BASE_URL = 'https://skillcorner.com'
@@ -279,6 +280,27 @@ class _MethodsGenerator(type):
         return type.__new__(cls, classname, supers, cls_dict)
 
 
+class TokenAuth(AuthBase):
+    def __init__(self, token):
+        self.token = token
+
+    def __call__(self, request):
+        # Parse the URL
+        url_parts = urlparse(request.url)
+
+        # Update the query string with the token parameter
+        query_params = dict(urlencode(url_parts.query))
+        query_params['token'] = self.token
+        updated_query = urlencode(query_params)
+
+        # Reconstruct the URL with the updated query string
+        updated_url = urlunparse(
+            (url_parts.scheme, url_parts.netloc, url_parts.path, url_parts.params, updated_query, url_parts.fragment)
+        )
+
+        request.url = updated_url
+        return request
+
 class SkillcornerClient(metaclass=_MethodsGenerator):
     """Skillcorner API client class.
 
@@ -290,21 +312,32 @@ class SkillcornerClient(metaclass=_MethodsGenerator):
                 password corresponding to the username
     """
 
-    def __init__(self, username=None, password=None):
+    def __init__(self, username=None, password=None, token=None):
         """
         :param username: string containing authorised username
         :param password: string containing valid password
+        :param token: string containing valid token
         """
 
         logger.debug(f'Init client object')
-        if not (username or password):
+
+        if not (username or password or token):
             try:
-                username = os.environ['SKC_USERNAME']
-                password = os.environ['SKC_PASSWORD']
+                username = os.environ.get('SKC_USERNAME')
+                password = os.environ.get('SKC_PASSWORD')
+                token = os.environ.get('SKC_TOKEN')
             except KeyError:
                 pass
-        self.auth = HTTPBasicAuth(username=username, password=password)
-        logger.debug(f'Authentication class: HTTPBasicAuth')
+
+        if token:
+            self.auth = TokenAuth(token)
+            logger.debug(f'Authentication class: TokenAuth')
+        elif username and password:
+            self.auth = HTTPBasicAuth(username=username, password=password)
+            logger.debug(f'Authentication class: HTTPBasicAuth')
+        else:
+            raise ValueError('Must provide either token or both username and password for authentication')
+
         self.base_url = BASE_URL
         logger.debug(f'Base url: {self.base_url}')
 
